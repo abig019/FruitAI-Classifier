@@ -2,6 +2,7 @@ import streamlit as st # type: ignore
 import pandas as pd # type: ignore
 import numpy as np # type: ignore
 import pickle
+import os
 
 st.set_page_config(
     page_title="FruitAI — Quality Classifier",
