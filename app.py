@@ -1,50 +1,10 @@
-import os
-import pickle
 import pandas as pd
 import numpy as np
-
-# ── AUTO-TRAIN IF MODEL DOESN'T EXIST ────────────────────
-if not os.path.exists('model.pkl'):
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import LabelEncoder
-    from sklearn.metrics import accuracy_score
-
-    df = pd.read_csv('fruit_data.csv')
-    le = LabelEncoder()
-    df['quality'] = le.fit_transform(df['quality'])
-    with open('label_encoder.pkl', 'wb') as f:
-        pickle.dump(le, f)
-
-    X = df.drop('quality', axis=1)
-    y = df['quality']
-    feature_names = X.columns.tolist()
-    with open('feature_names.pkl', 'wb') as f:
-        pickle.dump(feature_names, f)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y)
-
-    dt = DecisionTreeClassifier(max_depth=5, random_state=42)
-    dt.fit(X_train, y_train)
-    dt_acc = accuracy_score(y_test, dt.predict(X_test))
-
-    rf = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf.fit(X_train, y_train)
-    rf_acc = accuracy_score(y_test, rf.predict(X_test))
-
-    if dt_acc >= rf_acc:
-        best_model, best_name = dt, "Decision Tree"
-    else:
-        best_model, best_name = rf, "Random Forest"
-
-    with open('model.pkl', 'wb') as f:
-        pickle.dump(best_model, f)
-    with open('model_name.pkl', 'wb') as f:
-        pickle.dump(best_name, f)
-
-# ── NOW IMPORT STREAMLIT (after training is done) ────────
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score
 import streamlit as st
 
 st.set_page_config(
@@ -135,18 +95,34 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── LOAD MODEL ────────────────────────────────────────────
+# ── TRAIN & CACHE IN MEMORY (no pickle files needed) ─────
 @st.cache_resource
 def load_all():
-    with open('model.pkl', 'rb') as f:
-        model = pickle.load(f)
-    with open('label_encoder.pkl', 'rb') as f:
-        le = pickle.load(f)
-    with open('feature_names.pkl', 'rb') as f:
-        features = pickle.load(f)
-    with open('model_name.pkl', 'rb') as f:
-        model_name = pickle.load(f)
-    return model, le, features, model_name
+    df = pd.read_csv('fruit_data.csv')
+    le = LabelEncoder()
+    df['quality'] = le.fit_transform(df['quality'])
+
+    X = df.drop('quality', axis=1)
+    y = df['quality']
+    feature_names = X.columns.tolist()
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y)
+
+    dt = DecisionTreeClassifier(max_depth=5, random_state=42)
+    dt.fit(X_train, y_train)
+    dt_acc = accuracy_score(y_test, dt.predict(X_test))
+
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+    rf_acc = accuracy_score(y_test, rf.predict(X_test))
+
+    if dt_acc >= rf_acc:
+        best_model, best_name = dt, "Decision Tree"
+    else:
+        best_model, best_name = rf, "Random Forest"
+
+    return best_model, le, feature_names, best_name
 
 model, le, feature_names, model_name = load_all()
 
